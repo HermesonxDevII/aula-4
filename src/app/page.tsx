@@ -3,13 +3,25 @@
 import { useEffect, useState } from "react";
 
 import EditTask from "@/components/edit-task";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+
+
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Plus, List, Check, ArrowDownRight, Trash, ListChecks, Sigma } from 'lucide-react';
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger
+} from "@/components/ui/alert-dialog";
+
+import { Plus, Trash, ListChecks, Sigma, LoaderCircle } from 'lucide-react';
+
 import { toast } from "sonner";
 
 import { Tasks } from "@/generated/prisma/client";
@@ -17,15 +29,26 @@ import { Tasks } from "@/generated/prisma/client";
 import { getTasks } from "@/actions/get-tasks-from-db";
 import { newTask } from "@/actions/add-task";
 import { deleteTask } from "@/actions/delete-task";
+import { updateTaskStatus } from "@/actions/toggle-done";
+
+import Filters, { FilterType } from "@/components/filters";
 
 export default function Home() {
 
   const [tasks, setTasks] = useState<Tasks[]>([])
   const [task, setTask] = useState<string>('')
+  const [loading, setLoading] = useState<boolean>(false)
+  const [currentFilter, setCurrentFilter] = useState<FilterType>('all')
+  const [filteredTasks, setFilteredTasks] = useState<Tasks[]>(tasks)
 
   const handleAddTask = async () => {
+    setLoading(true)
+
     try {
-      if (!task || task.length === 0) return
+      if (!task || task.length === 0) {
+        toast.error('Insira uma atividade')
+        return
+      }
 
       const createdTask = await newTask(task)
 
@@ -36,6 +59,8 @@ export default function Home() {
       toast.success('Tarefa adicionada com sucesso!')
     } catch (error) {
       throw error
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -67,12 +92,29 @@ export default function Home() {
   }
 
   const handleToggleTask = async (id: string) => {
+    const previousTasks = [...tasks];
+
     try {
       if (!id) return
 
-      const previousTasks = [...tasks];
+      setTasks((prev) => {
+        const updatedTasksList = prev.map(task => {
+          if (task.id === id) {
+            return {
+              ...task,
+              done: !task.done
+            }
+          } else {
+            return task
+          }
+        })
 
+        return updatedTasksList
+      })
+
+      await updateTaskStatus(id);
     } catch (error) {
+      setTasks(previousTasks)
       throw error
     }
   }
@@ -80,6 +122,24 @@ export default function Home() {
   useEffect(() => {
     handleGetTasks()
   }, [])
+
+  useEffect(() => {
+    switch (currentFilter) {
+      case "all":
+        setFilteredTasks(tasks)
+        break
+
+      case "pending":
+        const pendingTasks = tasks.filter(task => !task.done)
+        setFilteredTasks(pendingTasks)
+        break
+
+      case "completed":
+        const completedTasks = tasks.filter(task => task.done)
+        setFilteredTasks(completedTasks)
+        break
+    }
+  }, [currentFilter, tasks])
 
   return (
     <main className="w-full h-screen bg-gray-100 flex justify-center items-center">
@@ -92,21 +152,18 @@ export default function Home() {
           />
 
           <Button className="cursor-pointer" onClick={handleAddTask}>
-            <Plus />Cadastrar
+            {loading ? <LoaderCircle className="animate-spin"/> : <Plus /> } Cadastrar
           </Button>
         </CardHeader>
 
         <CardContent>
           <Separator className="mb-4"/>
 
-          <div className="flex flex-row gap-2">
-            <Badge className="cursor-pointer" variant="default"><List />Todas</Badge>
-            <Badge className="cursor-pointer" variant="outline"><ArrowDownRight />Não finalizadas</Badge>
-            <Badge className="cursor-pointer" variant="outline"><Check />Concluídas</Badge>
-          </div>
+          <Filters currentFilter={currentFilter} setCurrentFilter={setCurrentFilter} />
 
           <div  className="mt-4 border-b">
-            {tasks.map(task => (
+            {tasks.length === 0 && <p className="text-xs border-t py-4">Você não possui atividades cadastradas!</p>}
+            {filteredTasks.map(task => (
               <div key={task.id} className="h-12 flex justify-between items-center border-t">
                 <div
                   className={`w-1.5 rounded-tr-md rounded-br-md ${task.done ? 'bg-green-300' : 'bg-red-400'}`}
@@ -119,7 +176,7 @@ export default function Home() {
                 >{task.task}</p>
 
                 <div className="flex flex-row gap-2 items-center">
-                  <EditTask />
+                  <EditTask task={task} handleGetTasks={handleGetTasks}/>
                   <Trash
                     size={16}
                     className="cursor-pointer"

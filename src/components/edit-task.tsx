@@ -1,9 +1,31 @@
 import { SquarePen } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
+import { Dialog, DialogClose, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
 import { Input } from "./ui/input";
 import { Button } from "./ui/button";
+import { Tasks } from "@/generated/prisma/client";
+import { useState } from "react";
+import { toast } from "sonner";
+import { editTask } from "@/actions/edit-task";
 
-export default function EditTask() {
+type TaskProps = {
+  task: Tasks,
+  handleGetTasks: () => void
+}
+
+export default function EditTask({ task, handleGetTasks }: TaskProps) {
+
+  const [editedTask, setEditedTask] = useState<string>(task.task)
+
+  const handleEditTask = async () => {
+    if (editedTask === task.task) {
+      toast.error('As informações não foram alteradas!')
+      return
+    }
+
+    await editTask({id: task.id, task: editedTask})
+    handleGetTasks()
+  }
+
   return (
     <Dialog>
       <DialogTrigger asChild>
@@ -16,8 +38,19 @@ export default function EditTask() {
         </DialogHeader>
 
         <div className="flex flex-row gap-2">
-          <Input placeholder="Editar Tarefa" className="flex-1"/>
-          <Button className="cursor-pointer">Editar</Button>
+          <Input
+            placeholder="Editar Tarefa"
+            value={editedTask}
+            onChange={(e) => setEditedTask(e.target.value)}
+            className="flex-1"
+          />
+
+          <DialogClose asChild>
+            <Button
+              className="cursor-pointer"
+              onClick={handleEditTask}
+            >Editar</Button>
+          </DialogClose>
         </div>
       </DialogContent>
     </Dialog>
