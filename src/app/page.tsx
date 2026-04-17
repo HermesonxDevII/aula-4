@@ -30,6 +30,7 @@ import { getTasks } from "@/actions/get-tasks-from-db";
 import { newTask } from "@/actions/add-task";
 import { deleteTask } from "@/actions/delete-task";
 import { updateTaskStatus } from "@/actions/toggle-done";
+import { deleteCompletedTasks } from "@/actions/clear-completed-tasks";
 
 import Filters, { FilterType } from "@/components/filters";
 
@@ -119,6 +120,14 @@ export default function Home() {
     }
   }
 
+  const handleClearCompletedTasks = async () => {
+    const allTasks = await deleteCompletedTasks()
+
+    if (!allTasks) return
+
+    setTasks(allTasks)
+  }
+
   useEffect(() => {
     handleGetTasks()
   }, [])
@@ -162,7 +171,7 @@ export default function Home() {
           <Filters currentFilter={currentFilter} setCurrentFilter={setCurrentFilter} />
 
           <div  className="mt-4 border-b">
-            {tasks.length === 0 && <p className="text-xs border-t py-4">Você não possui atividades cadastradas!</p>}
+            {filteredTasks.length === 0 && <p className="text-xs border-t py-4">Você não possui atividades cadastradas!</p>}
             {filteredTasks.map(task => (
               <div key={task.id} className="h-12 flex justify-between items-center border-t">
                 <div
@@ -190,7 +199,7 @@ export default function Home() {
           <div className="flex flex-row justify-between mt-4">
             <div className="flex flex-row gap-2 items-center">
               <ListChecks size={18} />
-              <p className="text-xs">Tarefas Concluídas (3/3)</p>
+              <p className="text-xs">Tarefas Concluídas ({tasks.filter(task => task.done).length}/{tasks.length})</p>
             </div>
 
             <AlertDialog>
@@ -200,24 +209,26 @@ export default function Home() {
 
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>Tem certeza que deseja excluir 2 itens?</AlertDialogTitle>
+                  <AlertDialogTitle>Tem certeza que deseja excluir {tasks.filter(task => task.done).length} itens?</AlertDialogTitle>
                 </AlertDialogHeader>
 
                 <AlertDialogFooter>
-                  <AlertDialogAction>Sim</AlertDialogAction>
-                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction className="cursor-pointer" onClick={handleClearCompletedTasks}>Sim</AlertDialogAction>
+                  <AlertDialogCancel className="cursor-pointer">Cancelar</AlertDialogCancel>
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
           </div>
 
           <div className="w-full h-2 bg-gray-100 mt-4 rounded-md">
-            <div className="h-full bg-green-500 rounded-md" style={{ width: '50%' }}></div>
+            <div
+              className="h-full bg-green-500 rounded-md transition"
+              style={{ width: `${(tasks.filter(task => task.done).length/tasks.length) * 100}%` }}></div>
           </div>
 
           <div className="flex flex-row gap-2 items-center justify-end mt-2">
             <Sigma size={18}/>
-            <p className="text-xs">3 tarefas no total</p>
+            <p className="text-xs">{tasks.length} tarefas no total</p>
           </div>
         </CardContent>
 
